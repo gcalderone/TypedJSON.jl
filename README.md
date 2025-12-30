@@ -17,7 +17,7 @@ The following table shows a quick comparison between `TypedJSON` approach and a 
 | **File storage efficiency**                | ❌ Low                  | ✅ High                    | ❌ Worst (also stores metadata). But it can explit Gzip compression |
 | **Performance**                            | ❌ Low                  | ✅ High                    | ❌ Worst (maps data onto intermediate structures) |
 | **Interoperability with other languages / libraries / applications** | ✅ Yes | ❌ No             | ✅ Yes (it may need additional efforts to neglect metadata) |
-| **Require customization to handle custom data types**                | ❌ Yes | ✅ No             | ❌ Yes                                            |
+| **Require new methods to handle custom data types**                  | ❌ Yes | ✅ No             | ❌ Yes                                            |
 ---
 
 ## Installation
