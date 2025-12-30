@@ -108,6 +108,12 @@ end
         @test roundtrip(vec_int) == vec_int
         @test roundtrip(vec_mix) == vec_mix
 
+        # Matrix
+        mat_int = [1 2; 3 4]
+        mat_mix = Any[1 missing; "two" 3.0]
+        @test roundtrip(mat_int) == mat_int
+        @test isequal(roundtrip(mat_mix), mat_mix)  # using isequal to deal with missing
+
         # Tuples
         tup = (1, "A", :sym)
         @test roundtrip(tup) == tup
@@ -117,12 +123,15 @@ end
         @test roundtrip(nt) == nt
 
         # Dictionaries
-        # Note: The serializer converts standard Dicts to OrderedDicts upon deserialization.
-        # We must compare the content, not the exact type if input was Unordered.
         d = Dict(:a => 1, :b => 2)
         res = roundtrip(d)
         @test res[:a] == 1 && res[:b] == 2
-        @test isa(res, OrderedDict) # Implementation detail check
+        @test isa(res, Dict)
+
+        d = OrderedDict(:a => 1, :b => 2)
+        res = roundtrip(d)
+        @test res[:a] == 1 && res[:b] == 2
+        @test isa(res, OrderedDict)
     end
 
     @testset "Nested Structures" begin

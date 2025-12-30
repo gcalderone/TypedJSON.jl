@@ -103,6 +103,14 @@ lower(::Nothing) = JSONNull()
 lower(v::String) = JSONString(v)
 lower(v::Bool) = JSONBool(v)
 lower(v::AbstractVector) = JSONArray(lower.(v))
+
+function lower(v::AbstractArray)
+    dict = OrderedDict{Symbol, JSONType}()
+    dict[:size] = lower(size(v))
+    dict[:data] = lower(reshape(v, :))
+    return JSONDict(:Array, dict)
+end
+
 function lower(v::T) where {T}
     @assert isstructtype(T) "Attempted to invoke the `lower` method for a structurre but $T is not a structure, consider defining a new JSONSerializer.lower(::$(T)) method"
     return JSONDict(v)
@@ -173,7 +181,15 @@ lower(v::DateTime) = return JSONValue(:DateTime, JSONString(v))
 lower(v::Symbol) = return JSONValue(:Symbol, JSONString(v))
 lower(v::Tuple) = JSONValue(:Tuple, JSONArray([lower.(v)...]))
 
-function lower(input::T) where {T <: AbstractDict}
+function lower(input::T) where {T <: Dict}
+    dict = OrderedDict{Symbol, JSONType}()
+    for (key, val) in input
+        dict[Symbol(key)] = lower(val)
+    end
+    return JSONDict(:Dict, dict)
+end
+
+function lower(input::T) where {T <: OrderedDict}
     dict = OrderedDict{Symbol, JSONType}()
     for (key, val) in input
         dict[Symbol(key)] = lower(val)
@@ -351,7 +367,6 @@ function reconstruct(v::JSONDict)
     return reconstruct(Val(v.jtype), dict)
 end
 
-
 reconstruct(::Val{:BigInt}  , value) = Base.parse(BigInt, value)
 reconstruct(::Val{:Int128}  , value) = Base.parse(Int128, value)
 reconstruct(v::JSONInt) = v.value
@@ -380,8 +395,10 @@ reconstruct(::Val{:NaN}) = NaN
 reconstruct(::Val{:pInf}) = +Inf
 reconstruct(::Val{:mInf}) = -Inf
 
+reconstruct(::Val{:Dict}, dict::OrderedDict{K,V}) where {K,V} = convert(Dict{K,V}, dict)
 reconstruct(::Val{:OrderedDict}, dict) = dict
 reconstruct(::Val{:NamedTuple}, dict) = NamedTuple(dict)
+reconstruct(::Val{:Array}, dict) = reshape(dict[:data], dict[:size])
 
 
 #=====================================================================
