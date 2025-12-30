@@ -17,24 +17,23 @@ consistency.
 using DataStructures, Dates, JSON, GZip
 
 #=
-Basic JSON types are: null, number, string, boolean, vector and dictionary (or objects).
-Here we define a Julia structure for each of these types.
+Basic JSON types are: null, number, string, boolean, vector and
+dictionary (or objects), while Julia data types can be significantly
+more complex.  As a consequence a simple conversion to/from JSON will
+typically provide different types with respect to their original
+values.
 
-Their purpose is to act as a bridge between the Julia world and the
-JSON format: if you can transform a Julia object into one of these
-objects, then the Julia object can be serialized in JSON. (note:
-deserialization is not guaranteed)
+Here we define a limited number of Julia structures which can be
+serialized/deserialized to/from JSON without any loss of type
+information.
 
-Note that for numeric values we define two different sutrctures to
-distinguish integers from floating point numbers.
+Their purpose is to act as an intermediate representation between the
+Julia world and the JSON format: if you can transform a Julia object
+into one of these objects, then the Julia object can be safely
+deserialized in JSON preserving the types.
 
-Also for the dictionary or object type we define three
-different structures to distinguish the following cases:
-- A singleton value;
-- A value represented by a single JSONType structure;
-- A more complex value requiring a dictionary (e.g. a dictionary, a named tuple or a structure);
-
-In total, we have 8 different structures to represent a julia object into the JSON format.
+All such structures inherit from the abstract `JSONType`, hence we'll
+call them `JSONType` structures.  In total, we have 9 such structures.
 =#
 abstract type JSONType end
 
@@ -109,35 +108,62 @@ function lower(v::T) where {T}
     return JSONDict(v)
 end
 
-function check_special_value(v::AbstractFloat)
+
+lower(v::BigInt)  = return JSONValue(:BigInt , JSONString(v))
+lower(v::Int128)  = return JSONValue(:Int128 , JSONString(v))
+lower(v::Int64)   = return JSONInt(v)
+lower(v::Int32)   = return JSONValue(:Int32  , JSONInt(v))
+lower(v::Int16)   = return JSONValue(:Int16  , JSONInt(v))
+lower(v::Int8)    = return JSONValue(:Int8   , JSONInt(v))
+lower(v::UInt128) = return JSONValue(:UInt128, JSONString(v))
+lower(v::UInt64)  = return JSONValue(:UInt64 , JSONString(v))
+lower(v::UInt32)  = return JSONValue(:UInt32 , JSONInt(v))
+lower(v::UInt16)  = return JSONValue(:UInt16 , JSONInt(v))
+lower(v::UInt8)   = return JSONValue(:UInt8  , JSONInt(v))
+
+function lower(v::BigFloat)
     if isnan(v)
-        return JSONSingleton(:NaN)
+        d = JSONSingleton(:NaN)
     elseif isinf(v)
-        if v > 0
-            return JSONSingleton(:pInf)
-        else
-            return JSONSingleton(:mInf)
-        end
+        d = (v > 0  ?  JSONSingleton(:pInf)  :  JSONSingleton(:mInf))
+    else
+        d = JSONString(v)
     end
-    return nothing
+    return JSONValue(:BigFloat, d)
 end
 
+function lower(v::Float64)
+    if isnan(v)
+        d = JSONSingleton(:NaN)
+    elseif isinf(v)
+        d = (v > 0  ?  JSONSingleton(:pInf)  :  JSONSingleton(:mInf))
+    else
+        d = JSONFloat(v)
+    end
+    return d
+end
 
-lower(v::BigInt)   = return JSONValue(:BigInt  , JSONString(v))
-lower(v::Int128)   = return JSONValue(:Int128  , JSONString(v))
-lower(v::Int64)    = return JSONInt(v)
-lower(v::Int32)    = return JSONValue(:Int32   , JSONInt(v))
-lower(v::Int16)    = return JSONValue(:Int16   , JSONInt(v))
-lower(v::Int8)     = return JSONValue(:Int8    , JSONInt(v))
-lower(v::UInt128)  = return JSONValue(:UInt128 , JSONString(v))
-lower(v::UInt64)   = return JSONValue(:UInt64  , JSONString(v))
-lower(v::UInt32)   = return JSONValue(:UInt32  , JSONInt(v))
-lower(v::UInt16)   = return JSONValue(:UInt16  , JSONInt(v))
-lower(v::UInt8)    = return JSONValue(:UInt8   , JSONInt(v))
-function lower(v::BigFloat); sv = check_special_value(v); return !isnothing(sv)  ?  sv  :  JSONValue(:BigFloat, JSONString(v)); end
-function lower(v::Float64) ; sv = check_special_value(v); return !isnothing(sv)  ?  sv  :  JSONFloat(v)                       ; end
-function lower(v::Float32) ; sv = check_special_value(v); return !isnothing(sv)  ?  sv  :  JSONValue(:Float32 , JSONFloat(v)) ; end
-function lower(v::Float16) ; sv = check_special_value(v); return !isnothing(sv)  ?  sv  :  JSONValue(:Float16 , JSONFloat(v)) ; end
+function lower(v::Float32)
+    if isnan(v)
+        d = JSONSingleton(:NaN)
+    elseif isinf(v)
+        d = (v > 0  ?  JSONSingleton(:pInf)  :  JSONSingleton(:mInf))
+    else
+        d = JSONFloat(v)
+    end
+    return JSONValue(:Float32, d)
+end
+
+function lower(v::Float16)
+    if isnan(v)
+        d = JSONSingleton(:NaN)
+    elseif isinf(v)
+        d = (v > 0  ?  JSONSingleton(:pInf)  :  JSONSingleton(:mInf))
+    else
+        d = JSONFloat(v)
+    end
+    return JSONValue(:Float16, d)
+end
 
 lower(::Missing) = JSONSingleton(:Missing)
 lower(v::Char) = return JSONValue(:Char, JSONString(v))
@@ -214,11 +240,14 @@ The julia data are:
 
 """
     serialize(filename::String, data; compress=false)
+    serialize(io::IO, data)
+    serialize(data)
 
-Serializes a Julia object `data` into the `filename` JSON file. Unlike standard JSON serialization, this function wraps values in metadata with the aim of preserving types like `Date`, `Symbol`, `NaN`, `Inf`, custom structures, etc.).
+Serializes a Julia object `data` into the `filename` JSON file or in the `io` stream.  If `filename` and `io` arguments are not provided it returns the JSON string.
 
 # Arguments
-- `filename::String`: The path where the file will be saved.
+- `filename::String`: The path where the file will be saved;
+- `io::IO`: The IO stream to write JSON data;
 - `data`: The Julia object to serialize.
 
 ## Keyword Arguments
@@ -237,11 +266,16 @@ function serialize(filename::String, data::JSONType; compress=false)
     else
         io = open(filename, "w")
     end
-    JSON.json(io, format(data))
+    serialize(io, data)
     close(io)
     return filename
 end
 
+serialize(io::IO, data)           = serialize(io, lower(data))
+serialize(        data)           = serialize(    lower(data))
+
+serialize(io::IO, data::JSONType) = JSON.json(io, format(data))
+serialize(        data::JSONType) = JSON.json(    format(data))
 
 #=====================================================================
 The `parse` methods perform the opposite conversion of the `format`
@@ -373,32 +407,48 @@ Reads a file created by `serialize` and reconstructs the original Julia objects.
 - filename::String: The path to the file to read.
 
 # Keyword Arguments
-- `attempt_reconstruction::Bool`: If `true` (default), attempts to convert the loaded JSON metadata back into Julia types (e.g., Date, custom structs, etc). If `false`, returns the raw intermediate JSONType structures (useful for debugging schema changes).
+- `skip_reconstruction::Bool`: If `false` (default), attempts to convert the loaded JSON metadata back into Julia types (e.g., Date, custom structs, etc). If `true`, returns the intermediate representation using `JSONType` structures (useful for debugging schema changes).
 
 - `compressed::Bool`: If true, enables GZip decompression. If `false` (default), it enables compression dependending on the presence of the `.gz` extension in the file name.
 
 # Returns
- The reconstructed Julia object if `attempt_reconstruction` is `true`, otherwise it returns the internal structure used to wrap the data.
+The reconstructed Julia object if `skip_reconstruction` is `false`, otherwise it returns the internal structure used to wrap the data.
 
 # Example
 ```julia
 data = TypedJSON.deserialize("data.json")
 ```
 """
-function deserialize(filename::String; attempt_reconstruction=true, compressed=false)
+function deserialize(filename::String; skip_reconstruction=false, compressed=false)
     if compressed  ||  ((length(filename) >= 3)  &&  (filename[(end-2):end] == ".gz"))
         io = GZip.open(filename)
     else
         io = open(filename)
     end
-    parsed = parse(JSON.parse(io, dicttype=OrderedDict))
+    out = deserialize_json(io; skip_reconstruction=skip_reconstruction)
     close(io)
+    return out
+end
 
-    if attempt_reconstruction
-        return reconstruct(parsed)
-    else
+function deserialize_json(io::Union{String, IO}; skip_reconstruction=false)
+    parsed = parse(JSON.parse(io, dicttype=OrderedDict))
+    if skip_reconstruction
         return parsed
+    else
+        return reconstruct(parsed)
     end
 end
+
+function roundtrip(x, finalstep=6)
+    s1 = lower(x);                             (finalstep == 1)  &&  (return s1)
+    s2 = format(s1);                           (finalstep == 2)  &&  (return s2)
+    s3 = JSON.json(s2);                        (finalstep == 3)  &&  (return s3)
+    s4 = JSON.parse(s3, dicttype=OrderedDict); (finalstep == 4)  &&  (return s4)
+    s5 = parse(s4);                            (finalstep == 5)  &&  (return s5)
+    return reconstruct(s5)
+end
+
+prettyprint_json(x) = JSON.print(JSON.parse(serialize(x)), 4)
+
 
 end # module TypedJSON

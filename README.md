@@ -56,6 +56,12 @@ println(loaded_data.readings)   # [1.0, NaN, Inf]
 
 `TypedJSON` fosters type fidelity by exploiting an intermediate representation of data types, sitting between the original Julia data type and the JSON data being written.  The advantage of such intermediate representation is that it is guaranteed to be identical to its original version upon deserialization.
 
+```
+Original Julia type => `lower` method   => intermediate representation based on `JSONType` objects   => JSON string => file on disk.
+File on disk => JSON string             => intermediate representation based on `JSONType` objects   => `reconstruct` method => original Julia type.
+```
+
+
 The `TypedJSON` intermediate representation relies on the following structures:
 - `JSONNull`: corresponding to the `nothing` singleton;
 - `JSONInt`: a scalar `Int` value;
