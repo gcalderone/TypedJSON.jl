@@ -207,7 +207,8 @@ defined above.
 =#
 
 const TYPE = ":"
-const OBJ = ""
+const VAL = ""
+const OBJ = "+"
 
 format(v::JSONNull) = nothing
 format(v::JSONInt) = v.value
@@ -216,7 +217,7 @@ format(v::JSONString) = v.value
 format(v::JSONBool) = v.value
 format(v::JSONArray) = format.(v.value)
 format(v::JSONSingleton) = OrderedDict{String, Any}(TYPE => v.jtype)
-format(v::JSONValue) = OrderedDict{String, Any}(TYPE => v.jtype, OBJ => format(v.value))
+format(v::JSONValue) = OrderedDict{String, Any}(TYPE => v.jtype, VAL => format(v.value))
 function format(v::JSONDict)
     out = OrderedDict{String, Any}()
     out[TYPE] = v.jtype
@@ -305,10 +306,10 @@ function parse(input::OrderedDict)
     if length(input) == 1
         return JSONSingleton(jtype)
     else
-        @assert OBJ in keys(input)
-        if !isa(input[OBJ], OrderedDict)
-            return JSONValue(jtype, parse(input[OBJ]))
+        if VAL in keys(input)
+            return JSONValue(jtype, parse(input[VAL]))
         else
+            @assert OBJ in keys(input)
             dict = OrderedDict{Symbol, JSONType}()
             for (key, val) in input[OBJ]
                 dict[Symbol(key)] = parse(val)

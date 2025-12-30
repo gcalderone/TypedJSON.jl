@@ -44,10 +44,10 @@ end
         mktempdir() do dir
             ext = compress ? ".json.gz" : ".json"
             filepath = joinpath(dir, "test_file$ext")
-            
+
             # Serialize
             TypedJSON.serialize(filepath, data, compress=compress)
-            
+
             # Deserialize
             return TypedJSON.deserialize(filepath, compressed=compress)
         end
@@ -69,7 +69,7 @@ end
         @test roundtrip(Float64(π)) == Float64(π)
         @test roundtrip(Float32(π)) == Float32(π)
         @test roundtrip(Float16(π)) == Float16(π)
-        
+
         @test roundtrip("Hello World") == "Hello World"
         @test roundtrip(true) == true
         @test roundtrip(false) == false
@@ -79,16 +79,24 @@ end
     end
 
     @testset "Numerical Edge Cases" begin
-        # Standard equality (==) fails for NaN, so we use isequal()
-        @test isequal(roundtrip(NaN), NaN)
-        @test roundtrip(Inf) == Inf
-        @test roundtrip(-Inf) == -Inf
+        @test roundtrip(NaN) === NaN64
+        @test roundtrip(Inf) === Inf
+        @test roundtrip(-Inf) === -Inf
+        @test isequal(roundtrip(BigFloat(NaN)), BigFloat(NaN))
+        @test roundtrip(Float32(NaN))  ===  NaN32
+        @test roundtrip(Float16(NaN))  ===  NaN16
+        @test isequal(roundtrip(BigFloat(Inf)), BigFloat(Inf))
+        @test roundtrip(Float32(Inf))  ===  Float32(Inf)
+        @test roundtrip(Float16(Inf))  ===  Float16(Inf)
+        @test isequal(roundtrip(BigFloat(-Inf)), BigFloat(-Inf))
+        @test roundtrip(Float32(-Inf))  ===  Float32(-Inf)
+        @test roundtrip(Float16(-Inf))  ===  Float16(-Inf)
     end
 
     @testset "Time & Date" begin
         d = Date(2023, 12, 25)
         dt = DateTime(2023, 12, 25, 14, 30, 0)
-        
+
         @test roundtrip(d) == d
         @test roundtrip(dt) == dt
     end
@@ -125,9 +133,9 @@ end
                 Dict(:val => NaN, :time => Date(2023,1,2))
             ]
         )
-        
+
         res = roundtrip(complex_nest)
-        
+
         @test res.meta.id == 1
         @test res.meta.status == :ok
         @test res.data[1][:val] == 10.0
@@ -137,7 +145,7 @@ end
     @testset "Custom Structs" begin
         p = TestPerson("Alice", 30, true)
         res = roundtrip(p)
-        
+
         @test res isa TestPerson
         @test res.name == "Alice"
         @test res.age == 30
@@ -150,9 +158,9 @@ end
             B = ["x", "y", "z"],
             C = [Date(2020,1,1), Date(2020,1,2), Date(2020,1,3)]
         )
-        
+
         res = roundtrip(df)
-        
+
         @test res isa DataFrame
         @test res == df
         @test res.C[1] == Date(2020,1,1)
@@ -160,7 +168,7 @@ end
 
     @testset "Compression (GZip)" begin
         data = rand(1000) # Large-ish array
-        
+
         # 1. Implicit compression via filename extension
         mktempdir() do dir
             file = joinpath(dir, "test.json.gz")
@@ -180,7 +188,7 @@ end
 
     @testset "Missing Values" begin
         @test isequal(roundtrip(missing), missing)
-        
+
         # Missing inside vector
         v = [1, missing, 3]
         res = roundtrip(v)
