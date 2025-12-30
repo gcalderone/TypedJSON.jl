@@ -9,12 +9,14 @@ The serialized JSON stream contains additional meta data supposed to
 assist in properly de-serialize the object (see `jtype` below).
 
 Note however that this module does not guarantee de-serialized objects
-will be identical to the original ones, but it is possible to
+to be identical to the original ones, but it is possible to
 implement new `lower` and `reconstruct` methods to achieve perfect
 consistency.
 =#
 
 using DataStructures, Dates, JSON, GZip
+
+public serialize, deserialize, deserialize_json, roundtrip, prettyprint_json
 
 #=
 Basic JSON types are: null, number, string, boolean, vector and
@@ -29,8 +31,8 @@ information.
 
 Their purpose is to act as an intermediate representation between the
 Julia world and the JSON format: if you can transform a Julia object
-into one of these objects, then the Julia object can be safely
-deserialized in JSON preserving the types.
+into one of these object without loss of information, then the Julia
+object can be safely deserialized in JSON preserving the types.
 
 All such structures inherit from the abstract `JSONType`, hence we'll
 call them `JSONType` structures.  In total, we have 9 such structures.
@@ -216,10 +218,10 @@ structures, and users are not supposed to add new ones.
 
 Note: in some case the `lower` and `format` methods perform very
 simple conversions back and forth between, e.g. `nothing` and
-`JSONNull`, a number and `JSONNumber`, etc.  This additional overhead
+`JSONNull`, an integer and `JSONInt`, etc.  This additional overhead
 is necessary to ensure that more complex Julia objects can be
-serialized in a predictable way, i.e. exclusively the `JSONType`s
-defined above.
+serialized in a predictable way, i.e. using exclusively the
+`JSONType`s defined above.
 =#
 
 const TYPE = ":"
@@ -232,10 +234,10 @@ format(v::JSONFloat) = v.value
 format(v::JSONString) = v.value
 format(v::JSONBool) = v.value
 format(v::JSONArray) = format.(v.value)
-format(v::JSONSingleton) = OrderedDict{String, Any}(TYPE => v.jtype)
-format(v::JSONValue) = OrderedDict{String, Any}(TYPE => v.jtype, VAL => format(v.value))
+format(v::JSONSingleton) = OrderedDict(TYPE => v.jtype)
+format(v::JSONValue) = OrderedDict(TYPE => v.jtype, VAL => format(v.value))
 function format(v::JSONDict)
-    out = OrderedDict{String, Any}()
+    out = OrderedDict()
     out[TYPE] = v.jtype
     out[OBJ] = OrderedDict{Symbol, Any}()
     for (key, val) in v.dict
@@ -245,15 +247,8 @@ function format(v::JSONDict)
 end
 
 
-#=====================================================================
-Actual seralization method.
-
-The julia data are:
-- lowered into a number of `JSONType` structures;
-- formatted into a form suitable to be serialized;
-- serialized in JSON;
-- written on file.
-=#
+# ====================================================================
+# Seralization method.
 
 """
     serialize(filename::String, data; compress=false)
@@ -268,7 +263,7 @@ Serializes a Julia object `data` into the `filename` JSON file or in the `io` st
 - `data`: The Julia object to serialize.
 
 ## Keyword Arguments
-- `compress::Bool`: If `true`, the output is compressed using GZip. If `false` (default), compression is determined by the file extension (encables compression if filename ends in `.gz`).
+- `compress::Bool`: If `true`, the output is compressed using GZip. If `false` (default), compression is determined by the file extension (enables compression if filename ends in `.gz`).
 
 # Example
 ```julia
@@ -296,8 +291,8 @@ serialize(        data::JSONType) = JSON.json(    format(data))
 
 #=====================================================================
 The `parse` methods perform the opposite conversion of the `format`
-methods defined above, i.e. we expect `parse(format(v))` `v` to
-indistinguishable.
+methods defined above, i.e. we expect `parse(format(v))` and `v` to
+be indistinguishable.
 
 We need exactly one `parse` method for each of the types returned by
 the adopted JSON library, and users are not supposed to add new ones.
@@ -341,7 +336,7 @@ The `reconstruct` methods perform the opposite conversion of the
 `lower` methods and are used to recreate the Julia objects based on
 the provided `JSONType` input.
 
-Hence we need at least 8 `reconstruct` methods, one for each of the
+Hence we need at least 9 `reconstruct` methods, one for each of the
 `JSONType` structures.
 
 Actually we have several aditional `reconstruct` methods, one for each
@@ -401,62 +396,85 @@ reconstruct(::Val{:NamedTuple}, dict) = NamedTuple(dict)
 reconstruct(::Val{:Array}, dict) = reshape(dict[:data], dict[:size])
 
 
-#=====================================================================
-Actual deseralization method.
-
-The JSON data are:
-- read from file;
-- parsed into a number of `JSONType` structures;
-
-- converted into their original Julia data types (via the
-  `reconstruct` methods).
-
-Note: the last step can be skipped using
-`attempt_reconstruction=false` (useful for debugging).  In this case
-the `deserialize` method returns just the `JSONType` structure(s).
-=#
+# ====================================================================
+# Deseralization methods.
 
 """
-    deserialize(filename::String; attempt_reconstruction=true, compressed=false)
+    deserialize(filename::String; compressed=false)
 
-Reads a file created by `serialize` and reconstructs the original Julia objects.
+Reads a file created by `serialize` and reconstructs the original Julia object
 
 # Arguments
 - filename::String: The path to the file to read.
 
 # Keyword Arguments
-- `skip_reconstruction::Bool`: If `false` (default), attempts to convert the loaded JSON metadata back into Julia types (e.g., Date, custom structs, etc). If `true`, returns the intermediate representation using `JSONType` structures (useful for debugging schema changes).
-
 - `compressed::Bool`: If true, enables GZip decompression. If `false` (default), it enables compression dependending on the presence of the `.gz` extension in the file name.
 
 # Returns
-The reconstructed Julia object if `skip_reconstruction` is `false`, otherwise it returns the internal structure used to wrap the data.
+The reconstructed Julia object.
 
 # Example
 ```julia
 data = TypedJSON.deserialize("data.json")
 ```
 """
-function deserialize(filename::String; skip_reconstruction=false, compressed=false)
+function deserialize(filename::String; compressed=false)
     if compressed  ||  ((length(filename) >= 3)  &&  (filename[(end-2):end] == ".gz"))
         io = GZip.open(filename)
     else
         io = open(filename)
     end
-    out = deserialize_json(io; skip_reconstruction=skip_reconstruction)
+    out = deserialize_json(io)
     close(io)
     return out
 end
 
-function deserialize_json(io::Union{String, IO}; skip_reconstruction=false)
+"""
+    deserialize_json(string::String)
+
+Deserialize from a JSON string and reconstructs the original Julia object.
+
+# Arguments
+- `string::String`: The JSON string.
+
+# Returns
+The reconstructed Julia object.
+
+# Example
+```julia
+data = TypedJSON.deserialize_json("[1,\\"two\\",3.0]")
+```
+"""
+function deserialize_json(io::Union{String, IO})
     parsed = parse(JSON.parse(io, dicttype=OrderedDict))
-    if skip_reconstruction
-        return parsed
-    else
-        return reconstruct(parsed)
-    end
+    return reconstruct(parsed)
 end
 
+"""
+    roundtrip(x, inspect_step=6)
+
+Perform a complete serialization and deserialization of a Julia object, and allow to inspect data at intermediate steps.
+
+The entire process involves the current steps:
+1 - convert the Julia object into an intermediate representation based on `JSONType` structures using the `lower` methods;
+2 - convert the `JSONType` structures into types suitable to be used as input for the `JSON library`;
+3 - actual JSON serialization via `JSON.json()`;
+4 - JSON de-serialization via `JSON.parse()`.  The data at this step are supposed to be equal (in the `isequal` sense) to those at step 2;
+5 - Parse data into the interemediate representation based on `JSONType` structures. The data at this step are supposed to be equal to those at step 1;
+6 - Recreate the original Julia data types using the `reconstruct` methods.  The data at this step are supposed to be equal to those provided in input (`x`).
+
+# Arguments
+- `x`: The JUlia object to serialize and deserialize;
+- `inspect_step::Int`: return after the specified step has been performed.  Useful to inspect the data at an intermediate step.  Default value is 6.
+
+# Returns
+The data at the selected step.
+
+# Example
+```julia
+data = TypedJSON.roundtrip([1,"two",3.0])
+```
+"""
 function roundtrip(x, finalstep=6)
     s1 = lower(x);                             (finalstep == 1)  &&  (return s1)
     s2 = format(s1);                           (finalstep == 2)  &&  (return s2)
@@ -466,6 +484,17 @@ function roundtrip(x, finalstep=6)
     return reconstruct(s5)
 end
 
+
+"""
+    prettyprint_json(x)
+
+Pretty print the JKSON representation of the `x` object.
+
+# Example
+```julia
+TypedJSON.prettyprint_json([1,"two",NaN])
+```
+"""
 prettyprint_json(x) = JSON.print(JSON.parse(serialize(x)), 4)
 
 
