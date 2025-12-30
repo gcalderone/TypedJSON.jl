@@ -2,18 +2,18 @@
 
 **A Julia serialization library prioritizing type fidelity, human-readability, and long-term archival.**
 
-`TypedJSON` allows you to serialize and deserialize Julia objects to/from JSON files. But Unlike other JSON libraries which convert data into generic strings or arrays, `TypedJSON` also stores metadata to allow proper reconstruction of data types.
+`TypedJSON` allows you to serialize and deserialize Julia objects to/from JSON files. But unlike other JSON libraries which convert data into generic strings or arrays, `TypedJSON` also stores metadata to allow proper reconstruction of data types.
 
 The goal is similar to other serialization libraries such as the standard [Serialization](https://docs.julialang.org/en/v1/stdlib/Serialization/) or [JLD2](https://github.com/JuliaIO/JLD2.jl), but `TypedJSON` keeps the data in a human-readable form to ensure long term readability even if the definition of Julia structure change.
 
-The following table shows a quick comparison between `TypedJSON` approach, and a few other solutions for data serialization:
+The following table shows a quick comparison between `TypedJSON` approach and a few other solutions for data serialization:
 
-| **Feature** | **Standard JSON** (e.g. [`JSON3.jl`](https://github.com/quinnj/JSON3.jl)) | **Binary blob** (e.g. [`JLD2.jl`](https://github.com/JuliaIO/JLD2.jl)) | **TypedJSON** |
+| **Feature** | [`JSON3.jl`](https://github.com/quinnj/JSON3.jl) | [`JLD2.jl`](https://github.com/JuliaIO/JLD2.jl) | **TypedJSON** |
 | :---    | :---  | :--- | :--- |
-| **Output Format**                          | Standard JSON           | Binary Blob                | Standard JSON (includes metadata besides data)    |
-| **Human Readable**                         | ✅ Yes                  | ❌ No                      | ✅ Yes                                            |
-| **Type Fidelity**                          | ❌ Low                  | ✅ High                    | ✅ High                                           |
-| **Long-term Archival / schema evolution**  | ✅ Yes                  | ⚠️ Fragile                 | ✅ Yes (either automatically or via manual hooks) |
+| **Output format**                          | Standard JSON           | Binary Blob                | Standard JSON (includes metadata besides data)    |
+| **Human readable**                         | ✅ Yes                  | ❌ No                      | ✅ Yes                                            |
+| **Type fidelity**                          | ❌ Low                  | ✅ High                    | ✅ High                                           |
+| **Long-term archival / schema evolution**  | ✅ Yes                  | ⚠️ Fragile                 | ✅ Yes (either automatically or via manual hooks) |
 | **File storage efficiency**                | ❌ Low                  | ✅ High                    | ❌ Worst (also stores metadata). But it can explit Gzip compression |
 | **Performance**                            | ❌ Low                  | ✅ High                    | ❌ Worst (maps data onto intermediate structures) |
 | **Interoperability with other languages / libraries / applications** | ✅ Yes | ❌ No             | ✅ Yes (it may need additional efforts to neglect metadata) |
