@@ -207,6 +207,11 @@ function lower(input::NamedTuple)
     return JSONDict(:NamedTuple, dict)
 end
 
+# In a few cases there is no meaningful way to serialize data...
+lower(::Function) = JSONNull()
+lower(::IO) = JSONNull()
+lower(::Ptr) = JSONNull()
+
 
 #=====================================================================
 The `format` methods are used to transform the `JSONType`s structures
