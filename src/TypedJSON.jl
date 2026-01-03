@@ -461,12 +461,12 @@ end
 Perform a complete serialization and deserialization of a Julia object, and allow to inspect data at intermediate steps.
 
 The entire process involves the current steps:
-1 - convert the Julia object into an intermediate representation based on `JSONType` structures using the `lower` methods;
-2 - convert the `JSONType` structures into types suitable to be used as input for the `JSON library`;
-3 - actual JSON serialization via `JSON.json()`;
-4 - JSON de-serialization via `JSON.parse()`.  The data at this step are supposed to be equal (in the `isequal` sense) to those at step 2;
-5 - Parse data into the interemediate representation based on `JSONType` structures. The data at this step are supposed to be equal to those at step 1;
-6 - Recreate the original Julia data types using the `reconstruct` methods.  The data at this step are supposed to be equal to those provided in input (`x`).
+1. convert the Julia object into an intermediate representation based on `JSONType` structures using the `lower` methods;
+2. convert the `JSONType` structures into types suitable to be used as input for the `JSON library`;
+3. actual JSON serialization via `JSON.json()`;
+4. JSON de-serialization via `JSON.parse()`.  The data at this step are supposed to be equal (in the `isequal` sense) to those at step 2;
+5. Parse data into the interemediate representation based on `JSONType` structures. The data at this step are supposed to be equal to those at step 1;
+6. Recreate the original Julia data types using the `reconstruct` methods.  The data at this step are supposed to be equal to those provided in input (`x`).
 
 # Arguments
 - `x`: The JUlia object to serialize and deserialize;

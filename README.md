@@ -2,22 +2,22 @@
 
 **A Julia serialization library prioritizing type fidelity, human-readability, and long-term archival.**
 
-`TypedJSON` allows you to serialize and deserialize Julia objects to/from JSON files. But unlike other JSON libraries which convert data into generic strings or arrays, `TypedJSON` also stores metadata to allow proper reconstruction of data types.
+`TypedJSON` allows you to serialize and deserialize Julia objects to/from JSON files. But unlike other JSON libraries which convert data into generic strings or arrays, `TypedJSON` also stores metadata to attempt a proper reconstruction of data types.
 
-The goal is similar to other serialization libraries such as the standard [Serialization](https://docs.julialang.org/en/v1/stdlib/Serialization/) or [JLD2](https://github.com/JuliaIO/JLD2.jl), but `TypedJSON` keeps the data in a human-readable form to ensure long term readability even if the definition of Julia structure change.
+The goal is similar to other serialization libraries such as the standard [Serialization](https://docs.julialang.org/en/v1/stdlib/Serialization/) or [JLD2](https://github.com/JuliaIO/JLD2.jl), but `TypedJSON` keeps the data in a human-readable form to ensure long term readability even if the definition of Julia structures evolve in time (version drift).
 
 The following table shows a quick comparison between `TypedJSON` approach and a few other solutions for data serialization:
 
 | **Feature** | [`JSON3.jl`](https://github.com/quinnj/JSON3.jl) | [`JLD2.jl`](https://github.com/JuliaIO/JLD2.jl) | **TypedJSON** |
 | :---    | :---  | :--- | :--- |
-| **Output format**                          | Standard JSON           | Binary Blob                | Standard JSON (includes metadata besides data)    |
-| **Human readable**                         | ✅ Yes                  | ❌ No                      | ✅ Yes                                            |
-| **Type fidelity**                          | ❌ Low                  | ✅ High                    | ✅ High                                           |
-| **Long-term archival / schema evolution**  | ✅ Yes                  | ⚠️ Fragile                 | ✅ Yes (either automatically or via manual hooks) |
-| **File storage efficiency**                | ❌ Low                  | ✅ High                    | ❌ Worst (also stores metadata). But it can explit Gzip compression |
-| **Performance**                            | ❌ Low                  | ✅ High                    | ❌ Worst (maps data onto intermediate structures) |
-| **Interoperability with other languages / libraries / applications** | ✅ Yes | ❌ No             | ✅ Yes (it may need additional efforts to neglect metadata) |
-| **Require new methods to handle custom data types**                  | ❌ Yes | ✅ No             | ❌ Yes                                            |
+| **Output format**                                                    | Binary Blob  | Standard JSON   | Standard JSON (includes metadata besides data)    |
+| **Human readable**                                                   | ❌ No        | ✅ Yes          | ✅ Yes                                            |
+| **Type fidelity**                                                    | ✅ High      | ❌ Low          | ✅ High                                           |
+| **Long-term archival / schema evolution**                            | ⚠️ Fragile   | ✅ Yes          | ✅ Yes (either automatically or via manual edits) |
+| **File storage efficiency**                                          | ✅ High      | ❌ Low          | ❌ Low (high with GZip compression)               |
+| **Performance**                                                      | ✅ High      | ❌ Low          | ❌ Low                                            |
+| **Interoperability with other languages / libraries / applications** | ❌ No        | ✅ Yes          | ✅ Yes                                            |
+| **Require new methods to handle custom data types**                  | ✅ No        | ❌ Yes          | ❌ Yes                                            |
 ---
 
 ## Installation
@@ -52,37 +52,33 @@ println(loaded_data.readings)   # [1.0, NaN, Inf]
 ```
 
 
-## `TypedJSON` internals
+## How `TypedJSON` fosters type-fidelity?
 
-`TypedJSON` fosters type fidelity by exploiting an intermediate representation of data types, sitting between the original Julia data type and the JSON data being written.  The advantage of such intermediate representation is that it is guaranteed to be identical to its original version upon deserialization.
+`TypedJSON` fosters type fidelity by converting input data to an intermediate representation which can be serialized (deserialized) to (from) JSON format without loss of type information.  The conversion from the original Julia type to the intermediate representation is dubbed *lowering* and is performed via the `TypedJSON.lower` methods.  Typically there is need to define additional `lower` methods for custom types, although this is definitely possible.
 
-```
-Original Julia type => `lower` method   => intermediate representation based on `JSONType` objects   => JSON string => file on disk.
-File on disk => JSON string             => intermediate representation based on `JSONType` objects   => `reconstruct` method => original Julia type.
-```
+The inverse conversion, from the intermediate representation to the original Julia type, is dubbed *reconstruction* and is performed via the `TypedJSON.reconstruct` methods. For user defined structs you need to define your own `reconstruct` method.
 
+### `TypedJSON` internals
 
-The `TypedJSON` intermediate representation relies on the following structures:
+The `TypedJSON` intermediate representation (which is entirely unrelated to the [Julia intermediate representation](https://docs.julialang.org/en/v1/base/reflection/#Intermediate-and-compiled-representations)) is based on the following data structures:
 - `JSONNull`: corresponding to the `nothing` singleton;
-- `JSONInt`: a scalar `Int` value;
+- `JSONInt`: a scalar `Int64` value;
 - `JSONFloat`: a scalar `Float64` value;
 - `JSONString`: a scalar string;
 - `JSONBool`: a scalar boolean;
 - `JSONArray`: a one-dimensional vector of any of the `JSON*` structures;
 - `JSONSingleton`: a scalar singleton such as `NaN`, `+Inf` or `missing`;
-- `JSONValue`: a typed value such as a `Date` or a `Symbol`;
+- `JSONValue`: a typed value such as a `Int8`, a `Date` or a `Symbol`;
 - `JSONDict`: a dictionary with `Symbol` keys and any `JSON*` structure as values.
 
-The constructors of the `JSONSingleton`, `JSONValue` and `JSONDict` structures requires a `Symbol` to uniquely identify the the data type being serialized.  By convention, such symbol is simply the data type name, prepended by the module name where the data type is identified, e.g. `Core.Int32`, `Dates.DateTime`, etc.
+If you can convert, or *lower*, a Julia object into any of the above structures without loss of information, then the Julia object can be safely deserialized, or *reconstructed*, from JSON preserving the types.
 
-The Julia types which directly map onto one of the above structures are already correctly handled by `TypedJSON`. For all other data types the following methods must be implemented:
-- `lower`: to convert a generic Julia data type into one of the above `JSON*` structure;
-- `reconstruct`: to convert a `JSON*` structure into the original Julia data type.
-
-A new implementation for the `lower` method can be avoided if the structure fields map direrctly onto one of the `JSON*` structures.  A `reconstruct` method is, however, always needed.
+The constructors of the `JSONSingleton`, `JSONValue` and `JSONDict` structures requires a `Symbol` to uniquely identify the the data type being serialized.  By convention, such symbol is simply the data type name prepended by the module name where the data type is identified, e.g. `Dates.DateTime`, etc.
 
 
-## Working with custom data types
+## Examples
+
+### Working with a custom structure
 
 Consider the following user defined structure:
 ```julia
@@ -124,7 +120,6 @@ end
 TypedJSON.reconstruct(::Val{:DataFrame}, dict) = DataFrame(dict)
 ```
 
-
 The following code shows how to serialize and deserialize a `DataFrame` object:
 ```julia
 df = DataFrame(
@@ -135,3 +130,6 @@ df = DataFrame(
 TypedJSON.serialize("test.json", df)
 show(TypedJSON.deserialize("test.json"))
 ```
+
+
+## Debug
