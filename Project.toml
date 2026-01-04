@@ -1,6 +1,6 @@
 name = "TypedJSON"
 uuid = "82102e82-2b72-4f25-ab3c-19001ac49e20"
-version = "0.2.0"
+version = "0.1.1"
 authors = ["Giorgio Calderone <giorgio.calderone@gmail.com>"]
 
 [deps]
