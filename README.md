@@ -140,12 +140,12 @@ df = DataFrame(
 TypedJSON.serialize("test.json.gz", df)
 show(TypedJSON.deserialize("test.json.gz"))
 ```
-Note that the filename used here has thre `.gz` extension, enabling automatic use of GZip compression.
+Note that the filename used here has the `.gz` extension, enabling automatic use of GZip compression.
 
 
 ## Can my data be serialized?
 
-Not all Julia type can be fed to `TypedJSON`, e.g. there is no way to serialize a `Function`, an `IO` or `Ptr` object.
+Not all Julia type can be fed to `TypedJSON`, e.g. there is no way to serialize a `Function`, an `IO` or a `Ptr` object.
 
 On the other hand, common objects such as an `Int8`, a `Dict`, a `Vector{Union{Missing, String}}` or a `Matrix{Float64}` (with proper handling of `NaN` and `Inf` values) are all handled properly out of the box.   To support additional data types you should implement the corresponding `lower` and `reconstruct` method.
 
