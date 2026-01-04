@@ -82,6 +82,9 @@ end
         @test roundtrip(NaN) === NaN64
         @test roundtrip(Inf) === Inf
         @test roundtrip(-Inf) === -Inf
+        @test roundtrip(π) === π
+        @test roundtrip(1  + 2im) === 1 + 2im
+        @test roundtrip(1. + 2im) === 1. + 2im
         @test isequal(roundtrip(BigFloat(NaN)), BigFloat(NaN))
         @test roundtrip(Float32(NaN))  ===  NaN32
         @test roundtrip(Float16(NaN))  ===  NaN16

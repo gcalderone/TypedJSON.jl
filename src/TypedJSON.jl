@@ -80,7 +80,11 @@ end
 struct JSONDict <: JSONObject
     jtype::Symbol
     dict::OrderedDict{Symbol, JSONType}
-    JSONDict(juliatype::Symbol, dict::OrderedDict{Symbol, JSONType}) = new(juliatype, dict)
+
+    function JSONDict(juliatype::Symbol, dict::OrderedDict{Symbol, T}) where T
+        @assert all([typeof(v) <: TypedJSON.JSONType for v in values(dict)])
+        new(juliatype, convert(OrderedDict{Symbol, JSONType}, dict))
+    end
 
     function JSONDict(str::T) where {T}
         @assert isstructtype(T) "Type $T is not a structure"
@@ -174,6 +178,9 @@ function lower(v::Float16)
     end
     return JSONValue(:Float16, d)
 end
+
+lower(v::Irrational{V}) where V = JSONValue(:Irrational, JSONString(V))
+lower(v::Complex) = JSONDict(:Complex, OrderedDict(:re => lower(real(v)), :im => lower(imag(v))))
 
 lower(::Missing) = JSONSingleton(:Missing)
 lower(v::Char) = return JSONValue(:Char, JSONString(v))
@@ -382,6 +389,9 @@ reconstruct(::Val{:BigFloat}, value) = BigFloat(value)
 reconstruct(v::JSONFloat) = v.value
 reconstruct(::Val{:Float32} , value) = Float32(value)
 reconstruct(::Val{:Float16} , value) = Float16(value)
+
+reconstruct(::Val{:Irrational}, value) = Irrational{Symbol(value)}()
+reconstruct(::Val{:Complex}, dict) = Complex(dict[:re], dict[:im])
 
 reconstruct(::Val{:Missing}) = missing
 reconstruct(::Val{:Char}, value) = Char(value[1])
