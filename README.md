@@ -79,8 +79,8 @@ Note that the above structures directly maps onto the basic type which are allow
 More specifically, the `JSONSingleton`, `JSONValue` and `JSONDict` structures are all serialized as dictionaries with an additional entry representing the original data type.  Such type is stored as a string in JSON and as a Symbol within these structures. Upon reconstruction, the Julia type symbol is used to dispatch to the proper `reconstruct` method by wrapping it into a `Val` object (see examples below).
 
 The following guidelines should be followed when implementing new `lower` and `reconstruct` methods:
-- The `lower` method should accept a single Julia value and return an instance of one of the abovre structures;
-- The julia type symbol (required by the `JSONSingleton`, `JSONValue` and `JSONDict` constructors) should be the the type name itself prepended by the module name where the data type is identified (e.g. `Dates.DateTime`);
+- The `lower` method should accept a single Julia value and return an instance of one of the abore structures;
+- The julia type symbol (required by the `JSONSingleton`, `JSONValue` and `JSONDict` constructors) should be the type name itself prepended by the module name where the data type is identified (e.g. `Dates.DateTime`);
 - The corresponding `reconstruct` method should accept just two arguments:
   - a `::Val{Symbol("MODULE.TYPE")}` where `MODULE.TYPE` is the data type name;
   - a single dictionary containing the reconstructed entries for the data type.
@@ -145,11 +145,11 @@ Note that the filename used here has the `.gz` extension, enabling automatic use
 
 ## Can my data be serialized?
 
-Not all Julia type can be fed to `TypedJSON`, e.g. there is no way to serialize a `Function`, an `IO` or a `Ptr` object.
+Not all Julia types can be fed to `TypedJSON`, e.g. there is no way to serialize a `Function`, an `IO` or a `Ptr` object.
 
-On the other hand, common objects such as an `Int8`, a `Dict`, a `Vector{Union{Missing, String}}` or a `Matrix{Float64}` (with proper handling of `NaN` and `Inf` values) are all handled properly out of the box.   To support additional data types you should implement the corresponding `lower` and `reconstruct` method.
+On the other hand, common objects such as an `Int8`, a `Dict`, a `Vector{Union{Missing, String}}` or a `Matrix{Float64}` (with proper handling of `NaN` and `Inf` values) are all handled properly out of the box.   To support additional data types you should implement the corresponding `lower` and `reconstruct` methods.
 
-To check whether a Julia object can be serialized/deserialized with `TypedJSON` use it as argument to the `TypedJSON.roundtrip` function.  This function also allows to inspect at intermediate steps between serialization and deserialization (sse the help string for additional details).  E.g.
+To check whether a Julia object can be serialized/deserialized with `TypedJSON` use it as argument to the `TypedJSON.roundtrip` function.  Its return value is supposed to be as close as possible as the original value. E.g.
 ```julia
 julia> TypedJSON.roundtrip([0 missing; "foo" π; Inf NaN; 1+2im nothing])
 4×2 Matrix{Any}:
@@ -158,3 +158,5 @@ julia> TypedJSON.roundtrip([0 missing; "foo" π; Inf NaN; 1+2im nothing])
  Inf      NaN
  1+2im       nothing
 ```
+
+This function also allows to inspect at intermediate steps between serialization and deserialization (sse the help string for additional details).
