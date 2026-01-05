@@ -53,6 +53,20 @@ println(loaded_data.experiment) # :alpha_run (Symbol)
 println(loaded_data.readings)   # [1.0, NaN, Inf]
 ```
 
+### Compare with [`JSON.jl`](https://github.com/JuliaIO/JSON.jl)
+
+A similar functionality may be obtained also with [`JSON.jl`](https://github.com/JuliaIO/JSON.jl), e.g.:
+```julia
+julia> JSON.parse(JSON.json(data, allownan=true), allownan=true)
+JSON.Object{String, Any} with 4 entries:
+  "experiment" => "alpha_run"
+  "timestamp"  => "2026-01-05T14:21:27.182"
+  "readings"   => Any[1.0, NaN, Inf]
+  "config"     => Object{String, Any}("id"=>1.0, "mode"=>"fast")
+```
+
+Note however that some of the original types are lost (e.g. the deserialized data is no longer a `NamedTuple`, `alpha_run` is no longer a `Symbol` and `timestamp` is no longer a `DateTime`).  Also note that the generated JSON data is not compliant because of the `allownan=true`. Finally, note that the `TypedJSON.deserialize()` function never requires the user to specify a data type to properly parse the JSON data, since the type is stored as a metadata in the JSON itself.
+
 
 ## How `TypedJSON` fosters type-fidelity?
 
@@ -160,3 +174,59 @@ julia> TypedJSON.roundtrip([0 missing; "foo" π; Inf NaN; 1+2im nothing])
 ```
 
 This function also allows to inspect at intermediate steps between serialization and deserialization (sse the help string for additional details).
+
+
+## How do the "typed JSON" looks like?
+
+You can inspect the generated JSON data with `TypedJSON.prettyprint_json`, e.g.:
+
+```julia
+julia> TypedJSON.prettyprint_json(TestPerson("Alice", 30, true))
+{
+    ":": "Main.TestPerson",
+    "+": {
+        "name": "Alice",
+        "age": 30,
+        "active": true
+    }
+}
+
+julia> ypedJSON.prettyprint_json([0 missing; "foo" π; Inf NaN; 1+2im nothing])
+{
+    ":": "Array",
+    "+": {
+        "size": {
+            ":": "Tuple",
+            "": [
+                4,
+                2
+            ]
+        },
+        "data": [
+            0,
+            "foo",
+            {
+                ":": "pInf"
+            },
+            {
+                ":": "Complex",
+                "+": {
+                    "re": 1,
+                    "im": 2
+                }
+            },
+            {
+                ":": "Missing"
+            },
+            {
+                ":": "Irrational",
+                "": "π"
+            },
+            {
+                ":": "NaN"
+            },
+            null
+        ]
+    }
+}
+```
