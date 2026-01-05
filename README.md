@@ -157,11 +157,10 @@ show(TypedJSON.deserialize("test.json.gz"))
 Note that the filename used here has the `.gz` extension, enabling automatic use of GZip compression.
 
 
+
 ## Can my data be serialized?
 
-Not all Julia types can be fed to `TypedJSON`, e.g. there is no way to serialize a `Function`, an `IO` or a `Ptr` object.
-
-On the other hand, common objects such as an `Int8`, a `Dict`, a `Vector{Union{Missing, String}}` or a `Matrix{Float64}` (with proper handling of `NaN` and `Inf` values) are all handled properly out of the box.   To support additional data types you should implement the corresponding `lower` and `reconstruct` methods.
+Not all Julia types can be fed to `TypedJSON`, e.g. there is no way to serialize a `Function`, an `IO` or a `Ptr` object (see *"Caveats"* section below).  On the other hand, many common data types such as an `Int8`, a `Dict`, a `Vector{Union{Missing, String}}` or a `Matrix{Float64}` (with proper handling of `NaN` and `Inf` values) are all handled properly out of the box.   To support additional data types you should implement the corresponding `lower` and `reconstruct` methods.
 
 To check whether a Julia object can be serialized/deserialized with `TypedJSON` use it as argument to the `TypedJSON.roundtrip` function.  Its return value is supposed to be as close as possible as the original value. E.g.
 ```julia
@@ -173,7 +172,9 @@ julia> TypedJSON.roundtrip([0 missing; "foo" π; Inf NaN; 1+2im nothing])
  1+2im       nothing
 ```
 
-This function also allows to inspect at intermediate steps between serialization and deserialization (sse the help string for additional details).
+This function also allows to inspect at intermediate steps between serialization and deserialization (se the help string for additional details).
+
+
 
 
 ## How do the "typed JSON" looks like?
@@ -230,3 +231,41 @@ julia> ypedJSON.prettyprint_json([0 missing; "foo" π; Inf NaN; 1+2im nothing])
     }
 }
 ```
+
+
+## Caveats
+
+
+As anticipated, some data types such as `Function`, an `IO` or a `Ptr` objects can not be serialized.  Still, `TypedJSON` convert these values to `nothing` to avoid raising errors when a serialization is attempted.
+
+> [!WARNING]
+> In a few cases `TypedJSON` perform **silent** conversions to `nothing` for types which can not be serialized.  This is a deliberate choice motivated by the need to avoid a dedicated `lower()` method for all user defined structures containing non-serializable types (besides other fields which can be automatically serialized).  The `reconstruct` method for such structures, however, is always needed hence the impossibility to deal with non-serializable objects will be made clear once deserialization is attempted.
+
+Also note that `TypedJSON` is not able to deal with all possible data type combinations, it only aims to cover the simplest cases and leave the user to address the application specific details by adding methods to the `lower` and `reconstruct` functions.
+
+One of the limitations of `TypedJSON` is that it is not always able to recover the parametric types. E.g. if you attempt to roundtrip a `Vector{AbstractFloat}` containing `Float64` you would obtain a `Vector{Float64}`:
+```julia
+julia> TypedJSON.roundtrip(Vector{AbstractFloat}([1., 2.]))
+2-element Vector{Float64}:
+ 1.0
+ 2.0
+```
+
+It is however possible to address any specific case by adding dedicated `lower` and `reconstruct` methods, e.g.
+```julia
+import TypedJSON: lower, reconstruct
+lower(v::Vector{AbstractFloat}) = TypedJSON.JSONValue(Symbol("Vector{AbstractFloat}"), TypedJSON.JSONArray(lower.(v)))
+reconstruct(::Val{Symbol("Vector{AbstractFloat}")}, v) = convert(Vector{AbstractFloat}, v)
+```
+Now `Vector{AbstractFloat}` are handled properly:
+```julia
+julia> TypedJSON.roundtrip(Vector{AbstractFloat}([1., 2.]))
+2-element Vector{AbstractFloat}:
+ 1.0
+ 2.0
+```
+
+
+> [!TIP]
+> The only way to safely ensure data can be serialized and deserialized without loss of information is to check the return value of `TypedJSON.roundtrip`.
+
