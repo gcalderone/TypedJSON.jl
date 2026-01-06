@@ -239,7 +239,7 @@ julia> ypedJSON.prettyprint_json([0 missing; "foo" π; Inf NaN; 1+2im nothing])
 As anticipated, some data types such as `Function`, an `IO` or a `Ptr` objects can not be serialized.  Still, `TypedJSON` convert these values to `nothing` to avoid raising errors when a serialization is attempted.
 
 > [!WARNING]
-> In a few cases `TypedJSON` perform **silent** conversions to `nothing` for types which can not be serialized.  This is a deliberate choice motivated by the need to avoid a dedicated `lower()` method for all user defined structures containing non-serializable types (besides other fields which can be automatically serialized).  The `reconstruct` method for such structures, however, is always needed hence the impossibility to deal with non-serializable objects will be made clear once deserialization is attempted.
+> In a few cases `TypedJSON` perform **silent** conversions to `nothing` for types which can not be serialized.  This is a deliberate choice motivated by the need to avoid a dedicated `lower()` method for all user defined structures containing non-serializable types (besides other fields which can be automatically serialized).  The `reconstruct()` method for such structures, however, is always needed hence the impossibility to deal with non-serializable objects will be made clear once deserialization is attempted.
 
 Also note that `TypedJSON` is not able to deal with all possible data type combinations, it only aims to cover the simplest cases and leave the user to address the application specific details by adding methods to the `lower` and `reconstruct` functions.
 
@@ -265,7 +265,8 @@ julia> TypedJSON.roundtrip(Vector{AbstractFloat}([1., 2.]))
  2.0
 ```
 
-
 > [!TIP]
 > The only way to safely ensure data can be serialized and deserialized without loss of information is to check the return value of `TypedJSON.roundtrip`.
 
+
+Finally, note that deserialization of JSON files from untrusted sources may lead to security issues (see [here](https://discourse.julialang.org/t/ann-typedjson-jl-a-julia-serialization-library-prioritizing-type-fidelity-human-readability-and-long-term-archival/134866/9)
