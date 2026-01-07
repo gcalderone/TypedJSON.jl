@@ -269,4 +269,4 @@ julia> TypedJSON.roundtrip(Vector{AbstractFloat}([1., 2.]))
 > The only way to safely ensure data can be serialized and deserialized without loss of information is to check the return value of `TypedJSON.roundtrip`.
 
 
-Finally, note that deserialization of JSON files from untrusted sources may lead to security issues (see [here](https://discourse.julialang.org/t/ann-typedjson-jl-a-julia-serialization-library-prioritizing-type-fidelity-human-readability-and-long-term-archival/134866/9)
+Finally, note that deserialization of JSON files from untrusted sources may lead to security issues (see [here](https://discourse.julialang.org/t/ann-typedjson-jl-a-julia-serialization-library-prioritizing-type-fidelity-human-readability-and-long-term-archival/134866/9)).
