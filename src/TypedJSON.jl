@@ -122,6 +122,7 @@ function lower(v::T) where {T}
     return JSONDict(v)
 end
 
+lower(v::JSONType) = v  # avoid re-lowering a JSONType
 
 lower(v::BigInt)  = return JSONValue(:BigInt , JSONString(v))
 lower(v::Int128)  = return JSONValue(:Int128 , JSONString(v))
