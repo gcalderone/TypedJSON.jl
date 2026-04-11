@@ -299,8 +299,8 @@ end
 serialize(io::IO, data)           = serialize(io, lower(data))
 serialize(        data)           = serialize(    lower(data))
 
-serialize(io::IO, data::JSONType) = JSON.json(io, format(data))
-serialize(        data::JSONType) = JSON.json(    format(data))
+serialize(io::IO, data::JSONType) = JSON.json(io, format(data), sort_keys=false)
+serialize(        data::JSONType) = JSON.json(    format(data), sort_keys=false)
 
 #=====================================================================
 The `parse` methods perform the opposite conversion of the `format`
@@ -494,7 +494,7 @@ data = TypedJSON.roundtrip([1,"two",3.0])
 function roundtrip(x, finalstep=6)
     s1 = lower(x);                             (finalstep == 1)  &&  (return s1)
     s2 = format(s1);                           (finalstep == 2)  &&  (return s2)
-    s3 = JSON.json(s2);                        (finalstep == 3)  &&  (return s3)
+    s3 = JSON.json(s2, sort_keys=false);       (finalstep == 3)  &&  (return s3)
     s4 = JSON.parse(s3, dicttype=OrderedDict); (finalstep == 4)  &&  (return s4)
     s5 = parse(s4);                            (finalstep == 5)  &&  (return s5)
     return reconstruct(s5)
