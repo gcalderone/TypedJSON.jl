@@ -191,7 +191,7 @@ lower(v::DateTime) = return JSONValue(:DateTime, JSONString(v))
 lower(v::Symbol) = return JSONValue(:Symbol, JSONString(v))
 lower(v::Tuple) = JSONValue(:Tuple, JSONArray([lower.(v)...]))
 
-function lower(input::T) where {T <: Dict}
+function lower(input::Dict{Symbol, V}) where {V}
     dict = OrderedDict{Symbol, JSONType}()
     for (key, val) in input
         dict[Symbol(key)] = lower(val)
@@ -199,12 +199,26 @@ function lower(input::T) where {T <: Dict}
     return JSONDict(:Dict, dict)
 end
 
-function lower(input::T) where {T <: OrderedDict}
+function lower(input::Dict{K, V}) where {K, V}
+    dict = OrderedDict{Symbol, JSONType}()
+    dict[:keys] = lower(collect(keys(input)))
+    dict[:vals] = lower(collect(values(input)))
+    return JSONDict(:Dict_kv, dict)
+end
+
+function lower(input::OrderedDict{Symbol, V}) where {V}
     dict = OrderedDict{Symbol, JSONType}()
     for (key, val) in input
         dict[Symbol(key)] = lower(val)
     end
     return JSONDict(:OrderedDict, dict)
+end
+
+function lower(input::OrderedDict{K, V}) where {K, V}
+    dict = OrderedDict{Symbol, JSONType}()
+    dict[:keys] = lower(collect(keys(input)))
+    dict[:vals] = lower(collect(values(input)))
+    return JSONDict(:OrderedDict_kv, dict)
 end
 
 function lower(input::NamedTuple)
@@ -407,7 +421,18 @@ reconstruct(::Val{:pInf}) = +Inf
 reconstruct(::Val{:mInf}) = -Inf
 
 reconstruct(::Val{:Dict}, dict::OrderedDict{K,V}) where {K,V} = convert(Dict{K,V}, dict)
+function reconstruct(::Val{:Dict_kv}, dict)
+    k = dict[:keys]
+    v = dict[:vals]
+    return Dict(Pair.(k, v))
+end
+
 reconstruct(::Val{:OrderedDict}, dict) = dict
+function reconstruct(::Val{:OrderedDict_kv}, dict)
+    k = dict[:keys]
+    v = dict[:vals]
+    return OrderedDict(Pair.(k, v))
+end
 reconstruct(::Val{:NamedTuple}, dict) = NamedTuple(dict)
 reconstruct(::Val{:Array}, dict) = reshape(dict[:data], dict[:size])
 

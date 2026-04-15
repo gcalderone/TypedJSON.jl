@@ -19,7 +19,7 @@ function TypedJSON.reconstruct(::Val{Symbol("$(@__MODULE__).TestPerson")}, dict)
     return TestPerson(dict[:name], dict[:age], dict[:active])
 end
 
-# 2. DataFrame Setup (From previous conversation)
+# 2. DataFrame Setup
 function TypedJSON.lower(df::DataFrame)
     dict = OrderedDict{Symbol, TypedJSON.JSONType}()
     for col_name in names(df)
@@ -134,6 +134,17 @@ end
         d = OrderedDict(:a => 1, :b => 2)
         res = roundtrip(d)
         @test res[:a] == 1 && res[:b] == 2
+        @test isa(res, OrderedDict)
+
+        # Keys are not Symbol
+        d = Dict((:a, "b") => 11, :b => 22)
+        res = roundtrip(d)
+        @test res[(:a, "b")] == 11 && res[:b] == 22
+        @test isa(res, Dict)
+
+        d = OrderedDict((:a, "b") => 111, :b => 222)
+        res = roundtrip(d)
+        @test res[(:a, "b")] == 111 && res[:b] == 222
         @test isa(res, OrderedDict)
     end
 
