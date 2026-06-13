@@ -76,6 +76,7 @@ end
         @test roundtrip(nothing) === nothing
         @test roundtrip('a') == 'a'
         @test roundtrip(:my_symbol) == :my_symbol
+        @test roundtrip(()) == ()
     end
 
     @testset "Numerical Edge Cases" begin
