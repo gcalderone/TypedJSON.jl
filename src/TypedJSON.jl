@@ -118,7 +118,7 @@ function lower(v::AbstractArray)
 end
 
 function lower(v::T) where {T}
-    @assert isstructtype(T) "Attempted to invoke the `lower` method for a structurre but $T is not a structure, consider defining a new JSONSerializer.lower(::$(T)) method"
+    @assert isstructtype(T) "Attempted to invoke the `lower` method for a structure but $T is not a structure, consider defining a new JSONSerializer.lower(::$(T)) method"
     return JSONDict(v)
 end
 
@@ -190,6 +190,7 @@ lower(v::Date) = return JSONValue(:Date, JSONString(v))
 lower(v::DateTime) = return JSONValue(:DateTime, JSONString(v))
 lower(v::Symbol) = return JSONValue(:Symbol, JSONString(v))
 lower(v::Tuple) = JSONValue(:Tuple, JSONArray([lower.(v)...]))
+lower(v::Tuple{}) = JSONSingleton(:EmptyTuple)
 
 function lower(input::Dict{Symbol, V}) where {V}
     dict = OrderedDict{Symbol, JSONType}()
@@ -415,6 +416,7 @@ reconstruct(::Val{:Date}, value) = Date(value)
 reconstruct(::Val{:DateTime}, value) = DateTime(value)
 reconstruct(::Val{:Symbol}, value) = Symbol(value)
 reconstruct(::Val{:Tuple}, value) = tuple(value...)
+reconstruct(::Val{:EmptyTuple}) = ()
 
 reconstruct(::Val{:NaN}) = NaN
 reconstruct(::Val{:pInf}) = +Inf
